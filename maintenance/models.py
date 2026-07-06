@@ -77,3 +77,30 @@ class Historique(models.Model):
 
     def __str__(self):
         return self.action
+    
+class AvisClient(models.Model):
+    class Satisfaction(models.TextChoices):
+        SATISFAIT = 'SATISFAIT', 'Satisfait'
+        NEUTRE = 'NEUTRE', 'Neutre'
+        INSATISFAIT = 'INSATISFAIT', 'Insatisfait'
+
+    nettoyage = models.OneToOneField(
+        Nettoyage,
+        on_delete=models.CASCADE,
+        related_name='avis_client'
+    )
+    client = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='avis'
+    )
+    satisfaction = models.CharField(
+        max_length=20,
+        choices=Satisfaction.choices
+    )
+    commentaire = models.TextField(blank=True)
+    confirme = models.BooleanField(default=False)
+    date_avis = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"avis {self.client.username}-{self.nettoyage}"

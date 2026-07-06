@@ -1,6 +1,6 @@
 from rest_framework.routers import DefaultRouter
 from django.urls import path
-from .views import UserViewSet, MoiAPIView, CreerMainteneurAPIView, ChangerMotDePasseAPIView
+from .views import ClientsAPIView, ResetPasswordClientAPIView, UserViewSet, MoiAPIView, CreerMainteneurAPIView, ChangerMotDePasseAPIView
 
 router = DefaultRouter()
 router.register(r'utilisateurs', UserViewSet, basename='utilisateurs')
@@ -9,4 +9,6 @@ urlpatterns = [
     path('utilisateurs/creer-mainteneur/', CreerMainteneurAPIView.as_view(), name='creer-mainteneur'),
     path('moi/', MoiAPIView.as_view(), name='moi'),
     path('moi/changer-mot-de-passe/', ChangerMotDePasseAPIView.as_view(), name='changer-mot-de-passe'),
+    path('clients/', ClientsAPIView.as_view()),
+    path('clients/<int:pk>/reset-password/', ResetPasswordClientAPIView.as_view()),
 ] + router.urls

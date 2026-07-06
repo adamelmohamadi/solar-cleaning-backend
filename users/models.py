@@ -9,6 +9,7 @@ class User(AbstractUser):
         CHEF_PROJET = "CHEF_PROJET", "Chef de Projet"
         DIRECTEUR_TECHNIQUE = "DIRECTEUR_TECHNIQUE", "Directeur Technique"
         DIRECTEUR_GENERAL = "DIRECTEUR_GENERAL", "Directeur Général"
+        CLIENT = "CLIENT", "Client"
 
     role = models.CharField(
         max_length=30,

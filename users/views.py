@@ -4,6 +4,11 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from .models import User
 from .serializers import UserSerializer, CreerMainteneurSerializer
+from django.contrib.auth.hashers import make_password
+import random
+import string
+from projects.models import Projet
+from maintenance.models import AvisClient 
 
 
 class EstAdminOuDG(IsAuthenticated):
@@ -67,3 +72,58 @@ class ChangerMotDePasseAPIView(APIView):
         request.user.set_password(nouveau)
         request.user.save()
         return Response({"detail": "Mot de passe mis à jour avec succès."})
+    
+class ClientsAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        estAdmin = request.user.is_superuser or request.user.role == 'DIRECTEUR_GENERAL'
+        if not estAdmin:
+            return Response({"detail": "Accès refusé."}, status=403)
+
+        clients = User.objects.filter(role='CLIENT')
+        data = []
+
+        for client in clients:
+            projets = Projet.objects.filter(client=client)
+            avis = AvisClient.objects.filter(client=client).order_by('-date_avis')[:3]
+
+            data.append({
+                'id': client.id,
+                'username': client.username,
+                'nom': f"{client.first_name} {client.last_name}".strip() or client.username,
+                'email': client.email or "—",
+                'projets': [{'id': p.id, 'nom': p.nom, 'localisation': p.localisation} for p in projets],
+                'avis_recents': [{
+                    'satisfaction': a.satisfaction,
+                    'commentaire': a.commentaire,
+                    'confirme': a.confirme,
+                    'date': str(a.date_avis)[:10],
+                } for a in avis],
+            })
+
+        return Response(data)
+
+
+class ResetPasswordClientAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        estAdmin = request.user.is_superuser or request.user.role == 'DIRECTEUR_GENERAL'
+        if not estAdmin:
+            return Response({"detail": "Accès refusé."}, status=403)
+
+        try:
+            client = User.objects.get(pk=pk, role='CLIENT')
+        except User.DoesNotExist:
+            return Response({"detail": "Client introuvable."}, status=404)
+
+        new_password = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
+        client.password = make_password(new_password)
+        client.save()
+
+        return Response({
+            'username': client.username,
+            'password': new_password,
+            'nom': f"{client.first_name} {client.last_name}".strip() or client.username,
+        })

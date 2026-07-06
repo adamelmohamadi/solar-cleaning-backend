@@ -124,3 +124,80 @@ class NettoyageViewSet(viewsets.ModelViewSet):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
             return [EstMainteneur()]
         return [IsAuthenticated()]
+
+class MonInstallationAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if request.user.role != 'CLIENT':
+            return Response ({"detail": "Accès refusé"}, status=403)
+        
+        projets = Projet.objects.filter(cleint=request.user)
+        data = []
+
+        for projet in projets:
+            nettoyages = Nettoyage.objects.filter(projet=projet).order_by('date_prevue')
+            prochain = nettoyage.filter(
+                statut='PLANIFIE',
+                date_prevue__gte=date.today()
+            ).first()
+            termines = nettoyages.filter(statut='TERMINE')
+
+            data.append({
+                'projet': {
+                    'id': projet.id,
+                    'nom': projet.nom,
+                    'localisation': projet.localisation,
+                    'nombre_panneaux': projet.nombre_panneaux,
+                },
+                'prochain_nettoyage': str(prochain.date_prevue) if prochain else None,
+                'nettoyage_termines': NettoyageSerializer(termines, many=True).data,
+                'total': nettoyages.count(),
+                'termines_count': termines.count(),
+                'taux': round((termines.count()/nettoyages.count())*100) if nettoyages.count() else 0,
+            })
+
+            return Response(data)
+        
+class AvisClientAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, nettoyage_id):
+        if request.user.role != 'CLIENT':
+            return Response({"detail":"Accès refusé."}, status=403)
+        
+        try:
+            nettoyage = Nettoyage.objects.get(pk=nettoyage_id, statut='TERMINE')
+        except Nettoyage.DoesNotExist:
+            return Response({"detail":"Nettoyage introuvable ou non terminé."}, status=404 )
+        avis, created = AvisClient.objects.get_or_create(
+            nettoyage=nettoyage,
+            client=request.user
+        )
+        avis.satistafction = request.data.get('satisfaction', avis.satisfaction)
+        avis.commentaire = request.data.get('commentaire', avis.commentaire)
+        avis.confirme = request.data.get('confirme', avis.confirme)
+        avis.save()
+
+        return Response(AvisClientSerializer(avis).data)
+    
+class AvisAdminAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        estAdmin = request.user.is_superuser or request.user.role == 'DIRECTEUR_GENERAL'
+        if not estAdmin:
+            return Response({"detail":"Accès refusé."}, status=403)
+        avis = AvisClient.objects.all().select_related('nettoyage','client','nettoyage__projet')
+        data = [{
+            'id': a.id,
+            'client': a.client.username,
+            'projet': a.nettoyage.projet.nom,
+            'date_nettoyage':str(a.nettoyage.date_prevue),
+            'satisfaction': a.satisfaction,
+            'commentaire': a.commentaire,
+            "confirme": a.confirme,
+            'date-avis': str(a.date_avis),
+        } for a in avis]
+
+        return Response(data)
