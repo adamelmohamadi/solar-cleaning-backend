@@ -3,6 +3,8 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from maintenance.models import Nettoyage
+from projects.models import Projet
+
 
 class NotificationsAPIView(APIView):
     permission_classes = [IsAuthenticated]
@@ -10,9 +12,22 @@ class NotificationsAPIView(APIView):
     def get(self, request):
         today = date.today()
         dans_7_jours = today + timedelta(days=7)
+        user = request.user
         notifications = []
 
-        en_retard = Nettoyage.objects.filter(
+        # Filtrer les nettoyages selon le rôle
+        est_client = user.role == 'CLIENT'
+        est_mainteneur = user.role == 'MAINTENEUR'
+
+        if est_client:
+            # Client voit uniquement les nettoyages de ses projets
+            projets_client = Projet.objects.filter(client=user)
+            nettoyages_base = Nettoyage.objects.filter(projet__in=projets_client)
+        else:
+            # Tous les autres rôles voient tout
+            nettoyages_base = Nettoyage.objects.all()
+
+        en_retard = nettoyages_base.filter(
             date_prevue__lt=today,
             statut__in=[Nettoyage.Statut.PLANIFIE, Nettoyage.Statut.EN_COURS]
         ).select_related('projet').order_by('date_prevue')
@@ -26,7 +41,7 @@ class NotificationsAPIView(APIView):
                 "date": n.date_prevue.strftime("%d/%m/%Y"),
             })
 
-        a_venir = Nettoyage.objects.filter(
+        a_venir = nettoyages_base.filter(
             date_prevue__gte=today,
             date_prevue__lte=dans_7_jours,
             statut=Nettoyage.Statut.PLANIFIE
@@ -41,7 +56,7 @@ class NotificationsAPIView(APIView):
                 "date": n.date_prevue.strftime("%d/%m/%Y"),
             })
 
-        termines = Nettoyage.objects.filter(
+        termines = nettoyages_base.filter(
             statut=Nettoyage.Statut.TERMINE,
             date_realisee__gte=today - timedelta(days=7)
         ).select_related('projet').order_by('-date_realisee')
