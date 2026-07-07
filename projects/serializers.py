@@ -13,4 +13,7 @@ class ProjetSerializer(serializers.ModelSerializer):
             'nombre_panneaux', 'frequence_nettoyage', 'responsable_maintenance',
             'date_creation', 'client', 'client_nom', 'nom_client'
         ]
-        
+
+    def create(self, validated_data):
+        validated_data.pop('nom_client', None)
+        return super().create(validated_data)
