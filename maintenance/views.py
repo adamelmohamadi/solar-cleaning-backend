@@ -132,7 +132,7 @@ class MonInstallationAPIView(APIView):
         if request.user.role != 'CLIENT':
             return Response ({"detail": "Accès refusé"}, status=403)
         
-        projets = Projet.objects.filter(cleint=request.user)
+        projets = Projet.objects.filter(client=request.user)
         data = []
 
         for projet in projets:
